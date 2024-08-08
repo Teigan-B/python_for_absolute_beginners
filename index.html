@@ -31,13 +31,11 @@ import plotly.express as px
 
 def age_bucket(dob_dt):
 
-    today = pd.to_datetime("today")
-
-    if dob_dt + pd.DateOffset(years=6) > today:
+    if dob_dt + pd.DateOffset(years=6) > ref_date:
         return "0-5 years"
-    elif dob_dt + pd.DateOffset(years=12) > today:
+    elif dob_dt + pd.DateOffset(years=12) > ref_date:
         return "6-11 years"
-    elif dob_dt + pd.DateOffset(years=18) > today:
+    elif dob_dt + pd.DateOffset(years=18) > ref_date:
         return "12-17 years"
     else:
         return "18+ years"
@@ -72,6 +70,13 @@ def age_pie(df):
                  title = "903 Age Breakdown")
     return fig
 
+def ethnicity_plot(df):
+    fig = px.histogram(df,
+                       "ETHNIC",
+                       title = "903 Ethnicity Breakdown",
+                       color = "Age range")
+    return fig
+
 
 # MAIN APP CODE
 
@@ -84,6 +89,12 @@ file = st.file_uploader("Drag and drop 903 Header File Here")
 # only want app to run if a file has been uploaded so use if statements
 if file:
     unclean_df = pd.read_csv(file)
+
+    ref_date = st.sidebar.date_input(
+        label = "Set reference date:",
+        value = pd.to_datetime("today")
+    )
+
     df = ingress(unclean_df)
 
     with st.sidebar:
@@ -92,13 +103,50 @@ if file:
                                         list(df["ETHNIC"].unique()))
     df = df[df["ETHNIC"].isin(chosen_ethnicities)]
 
-    st.dataframe(df)
+    with st.sidebar:
+        chosen_age_bracket = st.multiselect(label = "Select age buckets to view breakdowns by:",
+                                            options = list(df["Age range"].unique()),
+                                            default = list(df["Age range"].unique()))
+    df = df[df["Age range"].isin(chosen_age_bracket)]
 
-    gender_plot_fig = gender_plot(df)
-    st.plotly_chart(gender_plot_fig)
+age_range = st.sidebar.slider(
+    label = "Select age range for visulaisations:",
+    min_value = 0,
+    max_value = 25,
+    value = (0, 25)
+)
+df = df[df["Age range"].isin(chosen_age_bracket)]
 
-    age_plot_fig = age_pie(df)
-    st.plotly_chart(age_plot_fig)
+
+st.write(f"Selected reference date: {ref_date}")
+st.write(f"Lower age bound: {age_range[0]}")
+st.write(f"Upper age bound: {age_range[1]}")
+
+
+df = df[(ref_date - pd.DateOffset(years=age_range[0]) >= df["DOB"]) & (
+    ref_date - pd.DateOffset(years=age_range[1]) <= df["DOB"]
+)]
+
+
+st.dataframe(df)
+
+gender_plot_fig = gender_plot(df)
+st.plotly_chart(gender_plot_fig)
+
+age_plot_fig = age_pie(df)
+st.plotly_chart(age_plot_fig)
+
+with st.expander("903 Ethnicity breakdown chart"):
+    ethnicity_plot_fig = ethnicity_plot(df)
+    st.plotly_chart(ethnicity_plot_fig)
+
+
+
+
+
+
+
+
 
 
 
